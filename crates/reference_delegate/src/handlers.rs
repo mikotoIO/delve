@@ -125,12 +125,7 @@ pub async fn show_authorization(
 
     let data = AuthorizationPageData::new(
         request.status,
-        request.request.domain,
-        request.request.verifier,
-        request.request.verifier_id,
-        request.request.challenge,
-        request.request.expires_at.to_rfc3339(),
-        request.request.metadata,
+        request.request,
         request_id,
     );
 

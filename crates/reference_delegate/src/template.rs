@@ -1,9 +1,8 @@
 //! HTML templates for the authorization UI
 
 use handlebars::{handlebars_helper, Handlebars};
-use libdelve::RequestStatus;
+use libdelve::{ChallengeRequest, RequestStatus};
 use serde::Serialize;
-use std::collections::HashMap;
 use std::sync::OnceLock;
 
 handlebars_helper!(eq: |x: String, y: String| x == y);
@@ -26,12 +25,9 @@ fn get_handlebars() -> &'static Handlebars<'static> {
 #[derive(Serialize)]
 pub struct AuthorizationPageData {
     pub status: String,
-    pub domain: String,
-    pub verifier: String,
-    pub verifier_id: String,
-    pub challenge: String,
+    #[serde(flatten)]
+    pub request: ChallengeRequest,
     pub expires_at: String,
-    pub metadata: Option<HashMap<String, String>>,
     pub is_pending: bool,
     pub request_id: String,
 }
@@ -39,12 +35,7 @@ pub struct AuthorizationPageData {
 impl AuthorizationPageData {
     pub fn new(
         status: RequestStatus,
-        domain: String,
-        verifier: String,
-        verifier_id: String,
-        challenge: String,
-        expires_at: String,
-        metadata: Option<HashMap<String, String>>,
+        request: ChallengeRequest,
         request_id: String,
     ) -> Self {
         let status_str = match status {
@@ -55,12 +46,8 @@ impl AuthorizationPageData {
 
         Self {
             status: status_str.to_string(),
-            domain,
-            verifier,
-            verifier_id,
-            challenge,
-            expires_at,
-            metadata,
+            expires_at: request.expires_at.to_rfc3339(),
+            request,
             is_pending: status == RequestStatus::Pending,
             request_id,
         }

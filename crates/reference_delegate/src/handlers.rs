@@ -7,11 +7,15 @@ use axum::{
     Json,
 };
 use chrono::Utc;
-use libdelve::{ChallengeRequest, ChallengeResponse, RequestStatus, SigningPayload, TokenResponse, VerificationToken};
+use libdelve::{
+    ChallengeRequest, ChallengeResponse, RequestStatus, SigningPayload, TokenResponse,
+    VerificationToken,
+};
 use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::storage::{Storage, StoredRequest};
+use crate::template::{render_authorization_page, AuthorizationPageData};
 
 /// Shared application state
 #[derive(Clone)]
@@ -83,21 +87,19 @@ pub async fn get_token(
 
     match request.status {
         RequestStatus::Authorized => {
-            let token = request
-                .token
-                .ok_or_else(|| AppError::Internal("Token missing for authorized request".to_string()))?;
+            let token = request.token.ok_or_else(|| {
+                AppError::Internal("Token missing for authorized request".to_string())
+            })?;
 
             Ok(Json(TokenResponse::Authorized {
                 request_id: request.request_id,
                 token,
             }))
         }
-        RequestStatus::Pending => {
-            Ok(Json(TokenResponse::Pending {
-                request_id: request.request_id,
-                authorization_url: format!("{}/authorize/{}", state.base_url, request_id),
-            }))
-        }
+        RequestStatus::Pending => Ok(Json(TokenResponse::Pending {
+            request_id: request.request_id,
+            authorization_url: format!("{}/authorize/{}", state.base_url, request_id),
+        })),
         RequestStatus::Rejected => {
             let rejected_at = request
                 .rejected_at
@@ -126,185 +128,19 @@ pub async fn show_authorization(
         return Err(AppError::ChallengeExpired);
     }
 
-    // Build metadata display
-    let metadata_html = if let Some(metadata) = &request.metadata {
-        metadata
-            .iter()
-            .map(|(k, v)| format!("<li><strong>{}:</strong> {}</li>", escape_html(k), escape_html(v)))
-            .collect::<Vec<_>>()
-            .join("\n")
-    } else {
-        String::new()
-    };
-
-    let status_badge = match request.status {
-        RequestStatus::Pending => "<span style='color: orange;'>⏳ Pending</span>",
-        RequestStatus::Authorized => "<span style='color: green;'>✓ Authorized</span>",
-        RequestStatus::Rejected => "<span style='color: red;'>✗ Rejected</span>",
-    };
-
-    let html = format!(
-        r#"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>DelVe Authorization Request</title>
-    <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }}
-        .container {{
-            background: white;
-            border-radius: 8px;
-            padding: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }}
-        h1 {{
-            color: #333;
-            margin-top: 0;
-        }}
-        .info {{
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-        }}
-        .info dt {{
-            font-weight: bold;
-            color: #555;
-            margin-top: 10px;
-        }}
-        .info dd {{
-            margin-left: 0;
-            color: #333;
-        }}
-        .buttons {{
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }}
-        button {{
-            flex: 1;
-            padding: 12px 24px;
-            font-size: 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 600;
-        }}
-        .approve {{
-            background: #28a745;
-            color: white;
-        }}
-        .approve:hover {{
-            background: #218838;
-        }}
-        .reject {{
-            background: #dc3545;
-            color: white;
-        }}
-        .reject:hover {{
-            background: #c82333;
-        }}
-        .approve:disabled, .reject:disabled {{
-            opacity: 0.5;
-            cursor: not-allowed;
-        }}
-        .status {{
-            font-size: 18px;
-            margin-bottom: 15px;
-        }}
-        ul {{
-            margin: 0;
-            padding-left: 20px;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🔐 DelVe Authorization Request</h1>
-
-        <div class="status">Status: {}</div>
-
-        <div class="info">
-            <dl>
-                <dt>Domain</dt>
-                <dd>{}</dd>
-
-                <dt>Verifier</dt>
-                <dd>{}</dd>
-
-                <dt>Verifier ID</dt>
-                <dd><code>{}</code></dd>
-
-                <dt>Challenge</dt>
-                <dd><code style="word-break: break-all;">{}</code></dd>
-
-                <dt>Expires At</dt>
-                <dd>{}</dd>
-
-                {}
-            </dl>
-        </div>
-
-        <div class="buttons">
-            <button class="approve" onclick="authorize(true)" {}>
-                ✓ Approve
-            </button>
-            <button class="reject" onclick="authorize(false)" {}>
-                ✗ Reject
-            </button>
-        </div>
-    </div>
-
-    <script>
-        async function authorize(approve) {{
-            const buttons = document.querySelectorAll('button');
-            buttons.forEach(b => b.disabled = true);
-
-            try {{
-                const response = await fetch('/v1/authorize/{}', {{
-                    method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ approve }})
-                }});
-
-                if (response.ok) {{
-                    alert(approve ? 'Request approved!' : 'Request rejected!');
-                    location.reload();
-                }} else {{
-                    const error = await response.text();
-                    alert('Error: ' + error);
-                    buttons.forEach(b => b.disabled = false);
-                }}
-            }} catch (e) {{
-                alert('Error: ' + e.message);
-                buttons.forEach(b => b.disabled = false);
-            }}
-        }}
-    </script>
-</body>
-</html>"#,
-        status_badge,
-        escape_html(&request.domain),
-        escape_html(&request.verifier),
-        escape_html(&request.verifier_id),
-        escape_html(&request.challenge),
+    let data = AuthorizationPageData::new(
+        request.status,
+        request.domain,
+        request.verifier,
+        request.verifier_id,
+        request.challenge,
         request.expires_at.to_rfc3339(),
-        if !metadata_html.is_empty() {
-            format!("<dt>Metadata</dt><dd><ul>{}</ul></dd>", metadata_html)
-        } else {
-            String::new()
-        },
-        if request.status != RequestStatus::Pending { "disabled" } else { "" },
-        if request.status != RequestStatus::Pending { "disabled" } else { "" },
+        request.metadata,
         request_id,
     );
+
+    let html = render_authorization_page(data)
+        .map_err(|e| AppError::Internal(format!("Template error: {}", e)))?;
 
     Ok(Html(html))
 }
@@ -327,7 +163,9 @@ pub async fn process_authorization(
 
     // Check if already processed
     if request.status != RequestStatus::Pending {
-        return Err(AppError::BadRequest("Request already processed".to_string()));
+        return Err(AppError::BadRequest(
+            "Request already processed".to_string(),
+        ));
     }
 
     // Check if expired
@@ -381,15 +219,6 @@ pub async fn process_authorization(
     Ok(StatusCode::OK)
 }
 
-/// Escape HTML special characters
-fn escape_html(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&#39;")
-}
-
 /// Application error type
 #[derive(Debug)]
 pub enum AppError {
@@ -420,10 +249,18 @@ impl IntoResponse for AppError {
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
             AppError::ChallengeExpired => (StatusCode::GONE, "Challenge expired".to_string()),
             AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
-            AppError::Storage(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Storage error: {}", err)),
+            AppError::Storage(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Storage error: {}", err),
+            ),
             AppError::Libdelve(err) => match err {
-                libdelve::Error::InvalidChallenge(msg) => (StatusCode::BAD_REQUEST, format!("Invalid challenge: {}", msg)),
-                libdelve::Error::ChallengeExpired => (StatusCode::GONE, "Challenge expired".to_string()),
+                libdelve::Error::InvalidChallenge(msg) => (
+                    StatusCode::BAD_REQUEST,
+                    format!("Invalid challenge: {}", msg),
+                ),
+                libdelve::Error::ChallengeExpired => {
+                    (StatusCode::GONE, "Challenge expired".to_string())
+                }
                 _ => (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {}", err)),
             },
         };

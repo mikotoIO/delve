@@ -1,5 +1,6 @@
 mod handlers;
 mod storage;
+mod template;
 
 use axum::{
     routing::{get, post},

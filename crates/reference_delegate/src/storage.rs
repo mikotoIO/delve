@@ -41,6 +41,7 @@ pub struct StoredKeypair {
     pub created_at: DateTime<Utc>,
 }
 
+
 impl Storage {
     /// Create a new storage instance
     pub fn new(data_dir: impl Into<PathBuf>) -> Result<Self> {

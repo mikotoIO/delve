@@ -38,6 +38,19 @@ pub struct ChallengeRequest {
     pub metadata: Option<HashMap<String, String>>,
 }
 
+impl ChallengeRequest {
+    /// Create a signing payload for this challenge request
+    pub fn create_signing_payload(&self, signed_at: DateTime<Utc>) -> SigningPayload {
+        SigningPayload {
+            challenge: self.challenge.clone(),
+            domain: self.domain.clone(),
+            signed_at: signed_at.to_rfc3339(),
+            verifier: self.verifier.clone(),
+            verifier_id: self.verifier_id.clone(),
+        }
+    }
+}
+
 /// Challenge response from delegate service
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChallengeResponse {
@@ -99,6 +112,29 @@ pub struct VerificationToken {
     pub signed_at: DateTime<Utc>,
     #[serde(rename = "expiresAt")]
     pub expires_at: DateTime<Utc>,
+}
+
+impl VerificationToken {
+    /// Create a new verification token from a challenge request
+    pub fn new(
+        request: &ChallengeRequest,
+        signature: String,
+        public_key: String,
+        key_id: String,
+        signed_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            domain: request.domain.clone(),
+            verifier: request.verifier.clone(),
+            verifier_id: request.verifier_id.clone(),
+            challenge: request.challenge.clone(),
+            signature,
+            public_key,
+            key_id,
+            signed_at,
+            expires_at: request.expires_at,
+        }
+    }
 }
 
 /// Canonical signing payload

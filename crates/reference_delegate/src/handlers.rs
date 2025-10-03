@@ -8,8 +8,7 @@ use axum::{
 };
 use chrono::Utc;
 use libdelve::{
-    ChallengeRequest, ChallengeResponse, RequestStatus, SigningPayload, TokenResponse,
-    VerificationToken,
+    ChallengeRequest, ChallengeResponse, RequestStatus, TokenResponse, VerificationToken,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -123,11 +122,7 @@ pub async fn show_authorization(
         return Err(AppError::ChallengeExpired);
     }
 
-    let data = AuthorizationPageData::new(
-        request.status,
-        request.request,
-        request_id,
-    );
+    let data = AuthorizationPageData::new(request.status, request.request, request_id);
 
     let html = render_authorization_page(data)
         .map_err(|e| AppError::Internal(format!("Template error: {}", e)))?;
@@ -165,33 +160,25 @@ pub async fn process_authorization(
 
     if auth.approve {
         // Get keypair for domain
-        let keypair = state.storage.get_or_create_keypair(&request.request.domain)?;
+        let keypair = state
+            .storage
+            .get_or_create_keypair(&request.request.domain)?;
 
         // Create signing payload
         let signed_at = Utc::now();
-        let payload = SigningPayload {
-            challenge: request.request.challenge.clone(),
-            domain: request.request.domain.clone(),
-            signed_at: signed_at.to_rfc3339(),
-            verifier: request.request.verifier.clone(),
-            verifier_id: request.request.verifier_id.clone(),
-        };
+        let payload = request.request.create_signing_payload(signed_at);
 
         // Sign the payload
         let signature = libdelve::crypto::sign_payload(&keypair.private_key, &payload)?;
 
         // Create verification token
-        let token = VerificationToken {
-            domain: request.request.domain.clone(),
-            verifier: request.request.verifier.clone(),
-            verifier_id: request.request.verifier_id.clone(),
-            challenge: request.request.challenge.clone(),
+        let token = VerificationToken::new(
+            &request.request,
             signature,
-            public_key: keypair.public_key.clone(),
-            key_id: keypair.key_id.clone(),
+            keypair.public_key.clone(),
+            keypair.key_id.clone(),
             signed_at,
-            expires_at: request.request.expires_at,
-        };
+        );
 
         // Update request
         request.status = RequestStatus::Authorized;

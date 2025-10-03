@@ -2,9 +2,8 @@
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use libdelve::{RequestStatus, VerificationToken};
+use libdelve::{ChallengeRequest, RequestStatus, VerificationToken};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -18,13 +17,8 @@ pub struct Storage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredRequest {
     pub request_id: String,
-    pub domain: String,
-    pub verifier: String,
-    pub verifier_id: String,
-    pub challenge: String,
-    pub expires_at: DateTime<Utc>,
+    pub request: ChallengeRequest,
     pub status: RequestStatus,
-    pub metadata: Option<HashMap<String, String>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub token: Option<VerificationToken>,
@@ -40,7 +34,6 @@ pub struct StoredKeypair {
     pub key_id: String,
     pub created_at: DateTime<Utc>,
 }
-
 
 impl Storage {
     /// Create a new storage instance
@@ -152,7 +145,7 @@ impl Storage {
             let request: StoredRequest =
                 serde_json::from_str(&json).context("Failed to deserialize request")?;
 
-            if request.domain == domain {
+            if request.request.domain == domain {
                 requests.push(request);
             }
         }
@@ -237,13 +230,15 @@ mod tests {
 
         let request = StoredRequest {
             request_id: Uuid::new_v4().to_string(),
-            domain: "example.com".to_string(),
-            verifier: "service.example.net".to_string(),
-            verifier_id: "instance-123".to_string(),
-            challenge: "test-challenge".to_string(),
-            expires_at: Utc::now() + Duration::hours(1),
+            request: ChallengeRequest {
+                domain: "example.com".to_string(),
+                verifier: "service.example.net".to_string(),
+                verifier_id: "instance-123".to_string(),
+                challenge: "test-challenge".to_string(),
+                expires_at: Utc::now() + Duration::hours(1),
+                metadata: None,
+            },
             status: RequestStatus::Pending,
-            metadata: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
             token: None,
@@ -254,7 +249,7 @@ mod tests {
 
         let retrieved = storage.get_request(&request.request_id).unwrap().unwrap();
         assert_eq!(retrieved.request_id, request.request_id);
-        assert_eq!(retrieved.domain, request.domain);
+        assert_eq!(retrieved.request.domain, request.request.domain);
     }
 
     #[test]

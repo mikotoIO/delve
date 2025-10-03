@@ -44,13 +44,8 @@ pub async fn create_challenge(
     // Store the request
     let stored_request = StoredRequest {
         request_id: request_id.clone(),
-        domain: req.domain.clone(),
-        verifier: req.verifier.clone(),
-        verifier_id: req.verifier_id.clone(),
-        challenge: req.challenge.clone(),
-        expires_at: req.expires_at,
+        request: req.clone(),
         status: RequestStatus::Pending,
-        metadata: req.metadata.clone(),
         created_at: Utc::now(),
         updated_at: Utc::now(),
         token: None,
@@ -81,7 +76,7 @@ pub async fn get_token(
         .ok_or_else(|| AppError::NotFound("Request not found".to_string()))?;
 
     // Check if expired
-    if libdelve::challenge::is_challenge_expired(request.expires_at) {
+    if libdelve::challenge::is_challenge_expired(request.request.expires_at) {
         return Err(AppError::ChallengeExpired);
     }
 
@@ -124,18 +119,18 @@ pub async fn show_authorization(
         .ok_or_else(|| AppError::NotFound("Request not found".to_string()))?;
 
     // Check if expired
-    if libdelve::challenge::is_challenge_expired(request.expires_at) {
+    if libdelve::challenge::is_challenge_expired(request.request.expires_at) {
         return Err(AppError::ChallengeExpired);
     }
 
     let data = AuthorizationPageData::new(
         request.status,
-        request.domain,
-        request.verifier,
-        request.verifier_id,
-        request.challenge,
-        request.expires_at.to_rfc3339(),
-        request.metadata,
+        request.request.domain,
+        request.request.verifier,
+        request.request.verifier_id,
+        request.request.challenge,
+        request.request.expires_at.to_rfc3339(),
+        request.request.metadata,
         request_id,
     );
 
@@ -169,22 +164,22 @@ pub async fn process_authorization(
     }
 
     // Check if expired
-    if libdelve::challenge::is_challenge_expired(request.expires_at) {
+    if libdelve::challenge::is_challenge_expired(request.request.expires_at) {
         return Err(AppError::ChallengeExpired);
     }
 
     if auth.approve {
         // Get keypair for domain
-        let keypair = state.storage.get_or_create_keypair(&request.domain)?;
+        let keypair = state.storage.get_or_create_keypair(&request.request.domain)?;
 
         // Create signing payload
         let signed_at = Utc::now();
         let payload = SigningPayload {
-            challenge: request.challenge.clone(),
-            domain: request.domain.clone(),
+            challenge: request.request.challenge.clone(),
+            domain: request.request.domain.clone(),
             signed_at: signed_at.to_rfc3339(),
-            verifier: request.verifier.clone(),
-            verifier_id: request.verifier_id.clone(),
+            verifier: request.request.verifier.clone(),
+            verifier_id: request.request.verifier_id.clone(),
         };
 
         // Sign the payload
@@ -192,15 +187,15 @@ pub async fn process_authorization(
 
         // Create verification token
         let token = VerificationToken {
-            domain: request.domain.clone(),
-            verifier: request.verifier.clone(),
-            verifier_id: request.verifier_id.clone(),
-            challenge: request.challenge.clone(),
+            domain: request.request.domain.clone(),
+            verifier: request.request.verifier.clone(),
+            verifier_id: request.request.verifier_id.clone(),
+            challenge: request.request.challenge.clone(),
             signature,
             public_key: keypair.public_key.clone(),
             key_id: keypair.key_id.clone(),
             signed_at,
-            expires_at: request.expires_at,
+            expires_at: request.request.expires_at,
         };
 
         // Update request

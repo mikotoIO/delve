@@ -13,7 +13,6 @@ use crate::{delegate_client::DelegateClient, ChallengeRequest};
 
 /// Verifier for validating domain ownership through DelVe protocol
 pub struct Verifier {
-    verifier_name: String,
     verifier_id: String,
     challenge_duration: Duration,
 }
@@ -26,13 +25,8 @@ impl Verifier {
     /// * `verifier_name` - Human-readable name of the verifier service
     /// * `verifier_id` - Unique identifier for this verifier instance
     /// * `challenge_duration` - How long challenges remain valid (recommended: 15-60 minutes)
-    pub fn new(
-        verifier_name: impl Into<String>,
-        verifier_id: impl Into<String>,
-        challenge_duration: Duration,
-    ) -> Self {
+    pub fn new(verifier_id: impl Into<String>, challenge_duration: Duration) -> Self {
         Self {
-            verifier_name: verifier_name.into(),
             verifier_id: verifier_id.into(),
             challenge_duration,
         }
@@ -207,16 +201,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_verifier_creation() {
-        let verifier = Verifier::new("Test Service", "test-instance-123", Duration::minutes(30));
-
-        assert_eq!(verifier.verifier_name, "Test Service");
-        assert_eq!(verifier.verifier_id, "test-instance-123");
-    }
-
-    #[test]
     fn test_create_challenge() {
-        let verifier = Verifier::new("Test Service", "test-instance-123", Duration::minutes(30));
+        let verifier = Verifier::new("service.example.com", Duration::minutes(30));
 
         let (challenge, expires_at) = verifier.create_challenge("example.com").unwrap();
 

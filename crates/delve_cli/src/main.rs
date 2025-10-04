@@ -2,7 +2,10 @@ use anyhow::Result;
 use chrono::{Duration, Utc};
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use libdelve::{delegate_client::DelegateClient, discovery::discover_dns_config, ChallengeRequest};
+use libdelve::{
+    delegate_client::DelegateClient, discovery::discover_dns_config, ChallengeRequest,
+    RequestStatus,
+};
 use rand::Rng;
 
 #[derive(Parser)]
@@ -108,7 +111,7 @@ async fn main() -> Result<()> {
                 metadata: None,
             };
 
-            println!("{}", "Submitting challenge...".cyan());
+            println!("Submitting challenge to delegate {}", endpoint.cyan());
             let response = client.submit_challenge(&request).await?;
 
             println!("\n{}", "Challenge submitted successfully!".green().bold());
@@ -117,23 +120,28 @@ async fn main() -> Result<()> {
             println!(
                 "  {}: {}",
                 "Status".bold(),
-                format!("{:?}", response.status).yellow()
+                match response.status {
+                    RequestStatus::Authorized => format!("{:?}", response.status).green(),
+                    RequestStatus::Rejected => format!("{:?}", response.status).red(),
+                    RequestStatus::Pending => format!("{:?}", response.status).yellow(),
+                }
             );
             if let Some(auth_url) = &response.authorization_url {
                 println!("  {}: {}", "Authorization URL".bold(), auth_url.underline());
             }
-            println!("  {}: {}", "Expires At".bold(), response.expires_at);
 
-            println!("\n{}", "Next steps:".cyan().bold());
-            println!("  1. Visit the authorization URL to approve the request");
-            println!(
-                "  2. Run: {} to retrieve the token",
-                format!("delve token -e {} -r {}", endpoint, response.request_id).yellow()
-            );
-            println!(
-                "     Or: {} to wait for authorization",
-                format!("delve poll -e {} -r {}", endpoint, response.request_id).yellow()
-            );
+            if response.status == RequestStatus::Pending {
+                println!("\n{}", "Next steps:".cyan().bold());
+                println!("  1. Visit the authorization URL to approve the request");
+                println!(
+                    "  2. Run: {} to retrieve the token",
+                    format!("delve token -e {} -r {}", endpoint, response.request_id).yellow()
+                );
+                println!(
+                    "     Or: {} to wait for authorization",
+                    format!("delve poll -e {} -r {}", endpoint, response.request_id).yellow()
+                );
+            }
         }
 
         Commands::Token {

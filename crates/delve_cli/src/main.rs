@@ -94,10 +94,16 @@ async fn main() -> Result<()> {
             let endpoint = if let Some(ep) = endpoint {
                 ep
             } else {
-                println!("{}", format!("Discovering endpoint for {}...", domain).cyan());
+                println!(
+                    "{}",
+                    format!("Discovering endpoint for {}...", domain).cyan()
+                );
                 let config = discover_dns_config(&domain).await?;
                 config.endpoint.ok_or_else(|| {
-                    anyhow::anyhow!("Domain {} uses direct mode, no delegate endpoint available", domain)
+                    anyhow::anyhow!(
+                        "Domain {} uses direct mode, no delegate endpoint available",
+                        domain
+                    )
                 })?
             };
 
@@ -142,11 +148,9 @@ async fn main() -> Result<()> {
                 "Status".bold(),
                 format!("{:?}", response.status).yellow()
             );
-            println!(
-                "  {}: {}",
-                "Authorization URL".bold(),
-                response.authorization_url.underline()
-            );
+            if let Some(auth_url) = &response.authorization_url {
+                println!("  {}: {}", "Authorization URL".bold(), auth_url.underline());
+            }
             println!("  {}: {}", "Expires At".bold(), response.expires_at);
 
             println!("\n{}", "Next steps:".cyan().bold());

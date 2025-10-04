@@ -84,13 +84,19 @@ pub async fn create_challenge(
         rejected_at: None,
     };
 
-    state.storage.store_request(stored_request)?;
+    if status == RequestStatus::Pending {
+        state.storage.store_request(stored_request)?;
+    }
 
     // Return response
     let response = ChallengeResponse {
         request_id: request_id.clone(),
         status,
-        authorization_url: format!("{}/authorize/{}", state.base_url, request_id),
+        authorization_url: if status == RequestStatus::Pending {
+            Some(format!("{}/authorize/{}", state.base_url, request_id))
+        } else {
+            None
+        },
         expires_at: req.expires_at,
     };
 

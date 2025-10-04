@@ -82,7 +82,8 @@ impl ChallengeRequest {
 pub struct ChallengeResponse {
     pub request_id: String,
     pub status: RequestStatus,
-    pub authorization_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authorization_url: Option<String>,
     pub expires_at: DateTime<Utc>,
 }
 
@@ -105,7 +106,7 @@ pub enum TokenResponse {
 }
 
 /// Status of a verification request
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum RequestStatus {
     Pending,

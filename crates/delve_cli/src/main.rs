@@ -30,7 +30,7 @@ enum Commands {
 
         /// Verifier instance ID
         #[arg(long)]
-        verifier_id: String,
+        verifier: String,
 
         /// Expiration time in minutes from now
         #[arg(long, default_value = "60")]
@@ -68,7 +68,7 @@ async fn main() -> Result<()> {
         Commands::Challenge {
             endpoint,
             domain,
-            verifier_id,
+            verifier,
             expires_in,
         } => {
             // Resolve endpoint from DNS if not provided
@@ -89,9 +89,7 @@ async fn main() -> Result<()> {
             };
 
             let client = DelegateClient::new(&endpoint);
-
-            let request =
-                ChallengeRequest::new(&domain, &verifier_id, Duration::minutes(expires_in))?;
+            let request = ChallengeRequest::new(&domain, &verifier, Duration::minutes(expires_in))?;
 
             println!("Submitting challenge to delegate {}", endpoint.cyan());
             let response = client.submit_challenge(&request).await?;

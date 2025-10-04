@@ -75,6 +75,14 @@ impl ChallengeRequest {
             metadata: None,
         })
     }
+
+    pub fn with_meta(self, metadata: HashMap<String, serde_json::Value>) -> Self {
+        Self {
+            metadata: Some(metadata),
+            ..self
+        }
+    }
+
     /// Create a signing payload for this challenge request
     pub fn create_signing_payload(&self, signed_at: DateTime<Utc>) -> SigningPayload {
         SigningPayload {

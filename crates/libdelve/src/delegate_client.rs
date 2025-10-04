@@ -34,12 +34,7 @@ impl DelegateClient {
     pub async fn submit_challenge(&self, request: &ChallengeRequest) -> Result<ChallengeResponse> {
         let url = format!("{}/v1/challenge", self.base_url);
 
-        let response = self
-            .client
-            .post(&url)
-            .json(request)
-            .send()
-            .await?;
+        let response = self.client.post(&url).json(request).send().await?;
 
         if !response.status().is_success() {
             let status = response.status();

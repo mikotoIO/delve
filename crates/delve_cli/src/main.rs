@@ -1,12 +1,11 @@
 use anyhow::Result;
-use chrono::{Duration, Utc};
+use chrono::Duration;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use libdelve::{
     delegate_client::DelegateClient, discovery::discover_dns_config, ChallengeRequest,
     RequestStatus,
 };
-use rand::Rng;
 
 #[derive(Parser)]
 #[command(name = "delve")]
@@ -32,10 +31,6 @@ enum Commands {
         /// Verifier instance ID
         #[arg(long)]
         verifier_id: String,
-
-        /// Base64-encoded challenge string (auto-generated if not provided)
-        #[arg(short, long)]
-        challenge: Option<String>,
 
         /// Expiration time in minutes from now
         #[arg(long, default_value = "60")]
@@ -74,7 +69,6 @@ async fn main() -> Result<()> {
             endpoint,
             domain,
             verifier_id,
-            challenge,
             expires_in,
         } => {
             // Resolve endpoint from DNS if not provided
@@ -96,20 +90,8 @@ async fn main() -> Result<()> {
 
             let client = DelegateClient::new(&endpoint);
 
-            // Generate challenge if not provided
-            let challenge = challenge.unwrap_or_else(|| {
-                let mut rng = rand::rng();
-                let random_bytes: Vec<u8> = (0..32).map(|_| rng.random()).collect();
-                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &random_bytes)
-            });
-
-            let request = ChallengeRequest {
-                domain: domain.clone(),
-                verifier_id,
-                challenge,
-                expires_at: Utc::now() + Duration::minutes(expires_in),
-                metadata: None,
-            };
+            let request =
+                ChallengeRequest::new(&domain, &verifier_id, Duration::minutes(expires_in))?;
 
             println!("Submitting challenge to delegate {}", endpoint.cyan());
             let response = client.submit_challenge(&request).await?;

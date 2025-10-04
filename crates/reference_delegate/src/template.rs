@@ -33,11 +33,7 @@ pub struct AuthorizationPageData {
 }
 
 impl AuthorizationPageData {
-    pub fn new(
-        status: RequestStatus,
-        request: ChallengeRequest,
-        request_id: String,
-    ) -> Self {
+    pub fn new(status: RequestStatus, request: ChallengeRequest, request_id: String) -> Self {
         let status_str = match status {
             RequestStatus::Pending => "pending",
             RequestStatus::Authorized => "authorized",

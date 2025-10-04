@@ -1,8 +1,10 @@
 //! Core types for the DelVe protocol
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use crate::{challenge::generate_challenge, Result};
 
 /// Protocol version
 pub const PROTOCOL_VERSION: &str = "delve0.1";
@@ -63,6 +65,16 @@ pub struct ChallengeRequest {
 }
 
 impl ChallengeRequest {
+    pub fn new(domain: &str, verifier_id: &str, expires_in: Duration) -> Result<Self> {
+        let (ch, exp) = generate_challenge(expires_in)?;
+        Ok(ChallengeRequest {
+            domain: domain.to_string(),
+            verifier_id: verifier_id.to_string(),
+            challenge: ch,
+            expires_at: exp,
+            metadata: None,
+        })
+    }
     /// Create a signing payload for this challenge request
     pub fn create_signing_payload(&self, signed_at: DateTime<Utc>) -> SigningPayload {
         SigningPayload {

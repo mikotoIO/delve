@@ -2,7 +2,7 @@ use anyhow::Result;
 use chrono::{Duration, Utc};
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use libdelve::{delegate_client::DelegateClient, verifier::Verifier, ChallengeRequest};
+use libdelve::{delegate_client::DelegateClient, discovery::discover_dns_config, ChallengeRequest};
 use rand::Rng;
 use std::collections::HashMap;
 
@@ -19,8 +19,9 @@ enum Commands {
     /// Submit a verification challenge to a delegate
     Challenge {
         /// Delegate endpoint URL (e.g., https://verify.example.org)
+        /// If not provided, will use DNS discovery from the domain
         #[arg(short, long)]
-        endpoint: String,
+        endpoint: Option<String>,
 
         /// Domain to verify
         #[arg(short, long)]
@@ -89,6 +90,17 @@ async fn main() -> Result<()> {
             service_name,
             user_identifier,
         } => {
+            // Resolve endpoint from DNS if not provided
+            let endpoint = if let Some(ep) = endpoint {
+                ep
+            } else {
+                println!("{}", format!("Discovering endpoint for {}...", domain).cyan());
+                let config = discover_dns_config(&domain).await?;
+                config.endpoint.ok_or_else(|| {
+                    anyhow::anyhow!("Domain {} uses direct mode, no delegate endpoint available", domain)
+                })?
+            };
+
             let client = DelegateClient::new(&endpoint);
 
             let mut metadata = HashMap::new();

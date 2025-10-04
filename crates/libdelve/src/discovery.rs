@@ -162,4 +162,47 @@ mod tests {
             Err(Error::InvalidMode(_))
         ));
     }
+
+    #[test]
+    fn test_to_dns_record_delegate() {
+        let config = DnsConfig {
+            version: "delve0.1".to_string(),
+            mode: VerificationMode::Delegate,
+            endpoint: Some("https://verify.example.org".to_string()),
+            public_key: "MCowBQYDK2VwAyEAXXXX".to_string(),
+        };
+
+        let record = config.to_dns_record();
+        assert_eq!(
+            record,
+            "v=delve0.1; mode=delegate; endpoint=https://verify.example.org; key=MCowBQYDK2VwAyEAXXXX"
+        );
+
+        // Verify round-trip
+        let parsed = parse_dns_record(&record).unwrap();
+        assert_eq!(parsed.version, config.version);
+        assert_eq!(parsed.mode, config.mode);
+        assert_eq!(parsed.endpoint, config.endpoint);
+        assert_eq!(parsed.public_key, config.public_key);
+    }
+
+    #[test]
+    fn test_to_dns_record_direct() {
+        let config = DnsConfig {
+            version: "delve0.1".to_string(),
+            mode: VerificationMode::Direct,
+            endpoint: None,
+            public_key: "MCowBQYDK2VwAyEAYYYY".to_string(),
+        };
+
+        let record = config.to_dns_record();
+        assert_eq!(record, "v=delve0.1; mode=direct; key=MCowBQYDK2VwAyEAYYYY");
+
+        // Verify round-trip
+        let parsed = parse_dns_record(&record).unwrap();
+        assert_eq!(parsed.version, config.version);
+        assert_eq!(parsed.mode, config.mode);
+        assert_eq!(parsed.endpoint, config.endpoint);
+        assert_eq!(parsed.public_key, config.public_key);
+    }
 }

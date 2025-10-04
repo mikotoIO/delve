@@ -24,6 +24,32 @@ pub struct DnsConfig {
     pub public_key: String,
 }
 
+impl DnsConfig {
+    /// Format as a DNS TXT record value
+    ///
+    /// Returns a string in the format: `v=delve0.1; mode=delegate; endpoint=https://...; key=<base64>`
+    pub fn to_dns_record(&self) -> String {
+        let mut parts = vec![
+            format!("v={}", self.version),
+            format!(
+                "mode={}",
+                match self.mode {
+                    VerificationMode::Delegate => "delegate",
+                    VerificationMode::Direct => "direct",
+                }
+            ),
+        ];
+
+        if let Some(ref endpoint) = self.endpoint {
+            parts.push(format!("endpoint={}", endpoint));
+        }
+
+        parts.push(format!("key={}", self.public_key));
+
+        parts.join("; ")
+    }
+}
+
 /// Challenge request to delegate service
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

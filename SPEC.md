@@ -540,7 +540,7 @@ This specification registers the `_delve` DNS label prefix for domain verificati
 
 ### 10.2 Well-Known URI
 
-This specification registers the `/.well-known/delve.json` URI for domain verification discovery.
+This specification registers the `/.well-known/_delve.json` URI for domain verification discovery.
 
 ---
 

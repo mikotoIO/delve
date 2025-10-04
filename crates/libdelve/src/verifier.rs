@@ -1,10 +1,8 @@
 //! Verifier implementation for validating domain ownership
 
 use crate::{
-    challenge::{generate_challenge, validate_challenge_expiry, validate_challenge_format},
-    crypto::verify_signature,
-    discovery::discover_dns_config,
-    Error, Result, SigningPayload, VerificationToken,
+    challenge::generate_challenge, crypto::verify_signature, discovery::discover_dns_config, Error,
+    Result, SigningPayload, VerificationToken,
 };
 use chrono::{DateTime, Duration, Utc};
 
@@ -147,11 +145,7 @@ impl Verifier {
         expected_challenge: &str,
         dns_public_key: &str,
     ) -> Result<()> {
-        // Validate challenge format
-        validate_challenge_format(&token.challenge)?;
-
-        // Check expiration
-        validate_challenge_expiry(token.expires_at)?;
+        token.validate()?;
 
         // Verify domain matches
         if token.domain != expected_domain {

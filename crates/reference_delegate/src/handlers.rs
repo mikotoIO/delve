@@ -29,10 +29,7 @@ pub async fn create_challenge(
     Json(req): Json<ChallengeRequest>,
 ) -> Result<Json<ChallengeResponse>, AppError> {
     // Validate challenge format
-    libdelve::challenge::validate_challenge_format(&req.challenge)?;
-
-    // Check expiration
-    libdelve::challenge::validate_challenge_expiry(req.expires_at)?;
+    req.validate()?;
 
     // Ensure we have a keypair for this domain
     state.storage.get_or_create_keypair(&req.domain)?;
@@ -110,10 +107,7 @@ pub async fn get_token(
         .get_request(&request_id)?
         .ok_or_else(|| AppError::NotFound("Request not found".to_string()))?;
 
-    // Check if expired
-    if libdelve::challenge::is_challenge_expired(request.request.expires_at) {
-        return Err(AppError::ChallengeExpired);
-    }
+    request.request.validate()?;
 
     match request.status {
         RequestStatus::Authorized => {
@@ -153,10 +147,7 @@ pub async fn show_authorization(
         .get_request(&request_id)?
         .ok_or_else(|| AppError::NotFound("Request not found".to_string()))?;
 
-    // Check if expired
-    if libdelve::challenge::is_challenge_expired(request.request.expires_at) {
-        return Err(AppError::ChallengeExpired);
-    }
+    request.request.validate()?;
 
     let data = AuthorizationPageData::new(request.status, request.request, request_id);
 
@@ -190,7 +181,7 @@ pub async fn process_authorization(
     }
 
     // Check if expired
-    if libdelve::challenge::is_challenge_expired(request.request.expires_at) {
+    if request.request.is_expired() {
         return Err(AppError::ChallengeExpired);
     }
 

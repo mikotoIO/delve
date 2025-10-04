@@ -1,10 +1,14 @@
 //! Core types for the DelVe protocol
 
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::{challenge::generate_challenge, Result};
+use crate::{
+    challenge::{generate_challenge, MIN_CHALLENGE_BYTES},
+    Error, Result,
+};
 
 /// Protocol version
 pub const PROTOCOL_VERSION: &str = "delve0.1";
@@ -92,6 +96,31 @@ impl ChallengeRequest {
             verifier_id: self.verifier_id.clone(),
         }
     }
+
+    pub fn is_expired(&self) -> bool {
+        chrono::Utc::now() > self.expires_at
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let decoded = BASE64
+            .decode(&self.challenge)
+            .map_err(|e| Error::InvalidChallenge(format!("Invalid base64: {}", e)))?;
+
+        // Check minimum size (timestamp + separator + 32 random bytes)
+        if decoded.len() < MIN_CHALLENGE_BYTES {
+            return Err(Error::InvalidChallenge(format!(
+                "Challenge too short: {} bytes (minimum {})",
+                decoded.len(),
+                MIN_CHALLENGE_BYTES
+            )));
+        }
+
+        if chrono::Utc::now() > self.expires_at {
+            Err(Error::ChallengeExpired)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 /// Challenge response from delegate service
@@ -164,6 +193,27 @@ impl VerificationToken {
             key_id,
             signed_at,
             expires_at: request.expires_at,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let decoded = BASE64
+            .decode(&self.challenge)
+            .map_err(|e| Error::InvalidChallenge(format!("Invalid base64: {}", e)))?;
+
+        // Check minimum size (timestamp + separator + 32 random bytes)
+        if decoded.len() < MIN_CHALLENGE_BYTES {
+            return Err(Error::InvalidChallenge(format!(
+                "Challenge too short: {} bytes (minimum {})",
+                decoded.len(),
+                MIN_CHALLENGE_BYTES
+            )));
+        }
+
+        if chrono::Utc::now() > self.expires_at {
+            Err(Error::ChallengeExpired)
+        } else {
+            Ok(())
         }
     }
 }

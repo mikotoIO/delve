@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use crate::{
     challenge::{generate_challenge, MIN_CHALLENGE_BYTES},
-    Error, Result,
+    crypto, Error, Result,
 };
 
 /// Protocol version
@@ -95,6 +95,10 @@ impl ChallengeRequest {
             signed_at: signed_at.to_rfc3339(),
             verifier_id: self.verifier_id.clone(),
         }
+    }
+
+    pub fn sign_payload(&self, signed_at: DateTime<Utc>, private_key: &str) -> Result<String> {
+        crypto::sign_payload(private_key, &self.create_signing_payload(signed_at))
     }
 
     pub fn is_expired(&self) -> bool {

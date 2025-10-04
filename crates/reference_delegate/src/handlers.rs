@@ -46,8 +46,8 @@ pub async fn create_challenge(
         // Auto-approve: create token immediately
         let keypair = state.storage.get_or_create_keypair(&req.domain)?;
         let signed_at = Utc::now();
-        let payload = req.create_signing_payload(signed_at);
-        let signature = libdelve::crypto::sign_payload(&keypair.private_key, &payload)?;
+        let signature = req.sign_payload(signed_at, &keypair.private_key)?;
+
         let token = VerificationToken::new(
             &req,
             signature,
@@ -193,10 +193,11 @@ pub async fn process_authorization(
 
         // Create signing payload
         let signed_at = Utc::now();
-        let payload = request.request.create_signing_payload(signed_at);
 
         // Sign the payload
-        let signature = libdelve::crypto::sign_payload(&keypair.private_key, &payload)?;
+        let signature = request
+            .request
+            .sign_payload(signed_at, &keypair.private_key)?;
 
         // Create verification token
         let token = VerificationToken::new(

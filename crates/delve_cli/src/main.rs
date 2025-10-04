@@ -2,7 +2,7 @@ use anyhow::Result;
 use chrono::{Duration, Utc};
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use libdelve::{delegate_client::DelegateClient, ChallengeRequest};
+use libdelve::{delegate_client::DelegateClient, verifier::Verifier, ChallengeRequest};
 use rand::Rng;
 use std::collections::HashMap;
 
@@ -62,25 +62,6 @@ enum Commands {
         request_id: String,
     },
 
-    /// Poll for a verification token until authorized
-    Poll {
-        /// Delegate endpoint URL
-        #[arg(short, long)]
-        endpoint: String,
-
-        /// Request ID from challenge response
-        #[arg(short, long)]
-        request_id: String,
-
-        /// Maximum number of polling attempts
-        #[arg(long, default_value = "30")]
-        max_attempts: u32,
-
-        /// Polling interval in seconds
-        #[arg(long, default_value = "5")]
-        interval: u64,
-    },
-
     /// Revoke authorization for a verifier
     Revoke {
         /// Delegate endpoint URL
@@ -90,6 +71,13 @@ enum Commands {
         /// Verifier ID to revoke
         #[arg(short, long)]
         verifier_id: String,
+    },
+
+    /// Check verification configuration for a domain
+    Verify {
+        /// Domain to check
+        #[arg(short, long)]
+        domain: String,
     },
 }
 
@@ -218,60 +206,6 @@ async fn main() -> Result<()> {
             }
         }
 
-        Commands::Poll {
-            endpoint,
-            request_id,
-            max_attempts,
-            interval,
-        } => {
-            let client = DelegateClient::new(&endpoint);
-
-            println!(
-                "{}",
-                format!(
-                    "Polling for token (max {} attempts, {} second interval)...",
-                    max_attempts, interval
-                )
-                .cyan()
-            );
-
-            let poll_interval = std::time::Duration::from_secs(interval);
-            match client
-                .poll_for_token(&request_id, max_attempts, poll_interval)
-                .await
-            {
-                Ok(token) => {
-                    println!("\n{}", "Token authorized!".green().bold());
-                    println!("\n{}", "Token Details:".bold());
-                    println!("  {}: {}", "Domain".bold(), token.domain);
-                    println!("  {}: {}", "Verifier".bold(), token.verifier);
-                    println!("  {}: {}", "Verifier ID".bold(), token.verifier_id);
-                    println!("  {}: {}", "Key ID".bold(), token.key_id);
-                    println!("  {}: {}", "Signed At".bold(), token.signed_at);
-                    println!("  {}: {}", "Expires At".bold(), token.expires_at);
-                    println!("\n{}", "Full Token (JSON):".bold());
-                    println!("{}", serde_json::to_string_pretty(&token)?);
-                }
-                Err(libdelve::Error::AuthorizationRejected) => {
-                    println!("\n{}", "Request was rejected".red().bold());
-                }
-                Err(libdelve::Error::AuthorizationPending) => {
-                    println!(
-                        "\n{}",
-                        "Request still pending after maximum attempts"
-                            .yellow()
-                            .bold()
-                    );
-                    println!("\n{}", "Suggestions:".cyan().bold());
-                    println!("  - Check if the authorization URL was visited");
-                    println!("  - Try polling again with more attempts");
-                }
-                Err(e) => {
-                    return Err(e.into());
-                }
-            }
-        }
-
         Commands::Revoke {
             endpoint,
             verifier_id,
@@ -284,6 +218,47 @@ async fn main() -> Result<()> {
             println!("\n{}", "Authorization revoked successfully!".green().bold());
             println!("\n{}", "Details:".bold());
             println!("  {}: {}", "Verifier ID".bold(), verifier_id);
+        }
+
+        Commands::Verify { domain } => {
+            let verifier = Verifier::new("delve-cli", "cli-verify", Duration::minutes(30));
+
+            println!(
+                "{}",
+                format!("Checking verification for {}...", domain).cyan()
+            );
+
+            match verifier.discover(&domain).await {
+                Ok(config) => {
+                    println!("\n{}", "Verification configuration found!".green().bold());
+                    println!("\n{}", "Configuration:".bold());
+                    println!("  {}: {}", "Version".bold(), config.version);
+                    println!(
+                        "  {}: {}",
+                        "Mode".bold(),
+                        format!("{:?}", config.mode).yellow()
+                    );
+                    println!("  {}: {}", "Public Key".bold(), config.public_key);
+
+                    if let Some(endpoint) = config.endpoint {
+                        println!("  {}: {}", "Delegate Endpoint".bold(), endpoint.underline());
+                    }
+                }
+                Err(e) => {
+                    println!(
+                        "\n{}",
+                        "Failed to discover verification configuration".red().bold()
+                    );
+                    println!("\n{}", "Error:".bold());
+                    println!("  {}", e);
+                    println!("\n{}", "Suggestions:".cyan().bold());
+                    println!(
+                        "  - Ensure the domain has a TXT record at _delve.{}",
+                        domain
+                    );
+                    println!("  - Check DNS propagation");
+                }
+            }
         }
     }
 

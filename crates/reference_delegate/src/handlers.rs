@@ -40,14 +40,47 @@ pub async fn create_challenge(
     // Create request ID
     let request_id = Uuid::new_v4().to_string();
 
+    // Check if this domain-service combination was previously approved
+    let is_approved =
+        state
+            .storage
+            .is_domain_service_approved(&req.domain, &req.verifier, &req.verifier_id)?;
+
+    let (status, token) = if is_approved {
+        // Auto-approve: create token immediately
+        let keypair = state.storage.get_or_create_keypair(&req.domain)?;
+        let signed_at = Utc::now();
+        let payload = req.create_signing_payload(signed_at);
+        let signature = libdelve::crypto::sign_payload(&keypair.private_key, &payload)?;
+        let token = VerificationToken::new(
+            &req,
+            signature,
+            keypair.public_key.clone(),
+            keypair.key_id.clone(),
+            signed_at,
+        );
+
+        // Update the approval timestamp
+        state.storage.record_domain_service_approval(
+            &req.domain,
+            &req.verifier,
+            &req.verifier_id,
+        )?;
+
+        (RequestStatus::Authorized, Some(token))
+    } else {
+        // Require manual approval
+        (RequestStatus::Pending, None)
+    };
+
     // Store the request
     let stored_request = StoredRequest {
         request_id: request_id.clone(),
         request: req.clone(),
-        status: RequestStatus::Pending,
+        status: status.clone(),
         created_at: Utc::now(),
         updated_at: Utc::now(),
-        token: None,
+        token: token.clone(),
         rejected_at: None,
     };
 
@@ -56,7 +89,7 @@ pub async fn create_challenge(
     // Return response
     let response = ChallengeResponse {
         request_id: request_id.clone(),
-        status: RequestStatus::Pending,
+        status,
         authorization_url: format!("{}/authorize/{}", state.base_url, request_id),
         expires_at: req.expires_at,
     };
@@ -184,6 +217,13 @@ pub async fn process_authorization(
         request.status = RequestStatus::Authorized;
         request.token = Some(token);
         request.updated_at = Utc::now();
+
+        // Record this approval for future auto-approval
+        state.storage.record_domain_service_approval(
+            &request.request.domain,
+            &request.request.verifier,
+            &request.request.verifier_id,
+        )?;
     } else {
         // Reject
         request.status = RequestStatus::Rejected;

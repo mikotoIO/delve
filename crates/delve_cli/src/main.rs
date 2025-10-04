@@ -72,13 +72,6 @@ enum Commands {
         #[arg(short, long)]
         verifier_id: String,
     },
-
-    /// Check verification configuration for a domain
-    Verify {
-        /// Domain to check
-        #[arg(short, long)]
-        domain: String,
-    },
 }
 
 #[tokio::main]
@@ -218,47 +211,6 @@ async fn main() -> Result<()> {
             println!("\n{}", "Authorization revoked successfully!".green().bold());
             println!("\n{}", "Details:".bold());
             println!("  {}: {}", "Verifier ID".bold(), verifier_id);
-        }
-
-        Commands::Verify { domain } => {
-            let verifier = Verifier::new("delve-cli", "cli-verify", Duration::minutes(30));
-
-            println!(
-                "{}",
-                format!("Checking verification for {}...", domain).cyan()
-            );
-
-            match verifier.discover(&domain).await {
-                Ok(config) => {
-                    println!("\n{}", "Verification configuration found!".green().bold());
-                    println!("\n{}", "Configuration:".bold());
-                    println!("  {}: {}", "Version".bold(), config.version);
-                    println!(
-                        "  {}: {}",
-                        "Mode".bold(),
-                        format!("{:?}", config.mode).yellow()
-                    );
-                    println!("  {}: {}", "Public Key".bold(), config.public_key);
-
-                    if let Some(endpoint) = config.endpoint {
-                        println!("  {}: {}", "Delegate Endpoint".bold(), endpoint.underline());
-                    }
-                }
-                Err(e) => {
-                    println!(
-                        "\n{}",
-                        "Failed to discover verification configuration".red().bold()
-                    );
-                    println!("\n{}", "Error:".bold());
-                    println!("  {}", e);
-                    println!("\n{}", "Suggestions:".cyan().bold());
-                    println!(
-                        "  - Ensure the domain has a TXT record at _delve.{}",
-                        domain
-                    );
-                    println!("  - Check DNS propagation");
-                }
-            }
         }
     }
 

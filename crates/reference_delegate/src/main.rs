@@ -42,13 +42,13 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         // API endpoints
         .route("/v1/challenge", post(handlers::create_challenge))
-        .route("/v1/token/:request_id", get(handlers::get_token))
+        .route("/v1/token/{request_id}", get(handlers::get_token))
         .route(
-            "/v1/authorize/:request_id",
+            "/v1/authorize/{request_id}",
             post(handlers::process_authorization),
         )
         // UI endpoints
-        .route("/authorize/:request_id", get(handlers::show_authorization))
+        .route("/authorize/{request_id}", get(handlers::show_authorization))
         // Health check
         .route("/health", get(|| async { "OK" }))
         .with_state(state)

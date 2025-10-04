@@ -603,32 +603,13 @@ echo '{"domain":"example.com","verifier":"social.example.net","verifierId":"inst
 
 ---
 
-## Appendix B: Reference Implementation
+## Appendix B: Comparison with Other Systems
 
-A reference implementation of both delegate service and client library is available at:
-
-[To be added upon release]
-
----
-
-## Appendix C: Comparison with Other Systems
-
-### C.1 vs. Traditional DNS TXT Verification
+### B.1 vs. Traditional DNS TXT Verification
 
 - **DelVe Pro**: Scales to unlimited verifications, centralized management
 - **DNS Pro**: Simpler, no third party required
 - **Use DelVe when**: Managing many verifications or hitting DNS limits
-
-### C.2 vs. DID-based Systems
-
-- **DelVe Pro**: Simpler, leverages existing DNS infrastructure
-- **DID Pro**: More features (revocation, rotation), blockchain-based
-- **Use DelVe when**: Domain verification is primary goal
-
-### C.3 vs. ACME/Let's Encrypt
-
-- **Similarities**: Challenge-response, delegation via CNAME
-- **Differences**: DelVe is for identity verification, not certificates
 
 ---
 

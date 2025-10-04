@@ -55,12 +55,11 @@ impl DnsConfig {
 #[serde(rename_all = "camelCase")]
 pub struct ChallengeRequest {
     pub domain: String,
-    pub verifier: String,
     pub verifier_id: String,
     pub challenge: String,
     pub expires_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<HashMap<String, String>>,
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
 impl ChallengeRequest {
@@ -70,7 +69,6 @@ impl ChallengeRequest {
             challenge: self.challenge.clone(),
             domain: self.domain.clone(),
             signed_at: signed_at.to_rfc3339(),
-            verifier: self.verifier.clone(),
             verifier_id: self.verifier_id.clone(),
         }
     }
@@ -119,7 +117,6 @@ pub enum RequestStatus {
 #[serde(rename_all = "camelCase")]
 pub struct VerificationToken {
     pub domain: String,
-    pub verifier: String,
     pub verifier_id: String,
     pub challenge: String,
     pub signature: String,
@@ -140,7 +137,6 @@ impl VerificationToken {
     ) -> Self {
         Self {
             domain: request.domain.clone(),
-            verifier: request.verifier.clone(),
             verifier_id: request.verifier_id.clone(),
             challenge: request.challenge.clone(),
             signature,
@@ -159,7 +155,6 @@ pub struct SigningPayload {
     pub challenge: String,
     pub domain: String,
     pub signed_at: String,
-    pub verifier: String,
     pub verifier_id: String,
 }
 

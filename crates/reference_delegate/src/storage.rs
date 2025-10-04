@@ -39,7 +39,6 @@ pub struct StoredKeypair {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DomainServiceApproval {
     pub domain: String,
-    pub verifier: String,
     pub verifier_id: String,
     pub first_approved_at: DateTime<Utc>,
     pub last_approved_at: DateTime<Utc>,
@@ -59,8 +58,9 @@ impl Storage {
             .with_context(|| format!("Failed to create requests directory: {:?}", requests_dir))?;
         fs::create_dir_all(&keys_dir)
             .with_context(|| format!("Failed to create keys directory: {:?}", keys_dir))?;
-        fs::create_dir_all(&approvals_dir)
-            .with_context(|| format!("Failed to create approvals directory: {:?}", approvals_dir))?;
+        fs::create_dir_all(&approvals_dir).with_context(|| {
+            format!("Failed to create approvals directory: {:?}", approvals_dir)
+        })?;
 
         Ok(Self { data_dir })
     }
@@ -93,12 +93,11 @@ impl Storage {
     }
 
     /// Get path to a domain-service approval file
-    fn approval_path(&self, domain: &str, verifier: &str, verifier_id: &str) -> PathBuf {
+    fn approval_path(&self, domain: &str, verifier_id: &str) -> PathBuf {
         // Create a unique filename from domain, verifier, and verifier_id
         let safe_domain = domain.replace(['/', '\\', ':', '.'], "_");
-        let safe_verifier = verifier.replace(['/', '\\', ':', '.'], "_");
         let safe_verifier_id = verifier_id.replace(['/', '\\', ':', '.'], "_");
-        let filename = format!("{}__{}__{}.json", safe_domain, safe_verifier, safe_verifier_id);
+        let filename = format!("{}__{}.json", safe_domain, safe_verifier_id);
         self.approvals_dir().join(filename)
     }
 
@@ -235,14 +234,18 @@ impl Storage {
     }
 
     /// Check if a domain-service combination has been previously approved
-    pub fn is_domain_service_approved(&self, domain: &str, verifier: &str, verifier_id: &str) -> Result<bool> {
-        let path = self.approval_path(domain, verifier, verifier_id);
+    pub fn is_domain_service_approved(&self, domain: &str, verifier_id: &str) -> Result<bool> {
+        let path = self.approval_path(domain, verifier_id);
         Ok(path.exists())
     }
 
     /// Get a domain-service approval record
-    pub fn get_domain_service_approval(&self, domain: &str, verifier: &str, verifier_id: &str) -> Result<Option<DomainServiceApproval>> {
-        let path = self.approval_path(domain, verifier, verifier_id);
+    pub fn get_domain_service_approval(
+        &self,
+        domain: &str,
+        verifier_id: &str,
+    ) -> Result<Option<DomainServiceApproval>> {
+        let path = self.approval_path(domain, verifier_id);
 
         if !path.exists() {
             return Ok(None);
@@ -258,29 +261,31 @@ impl Storage {
     }
 
     /// Record a domain-service approval
-    pub fn record_domain_service_approval(&self, domain: &str, verifier: &str, verifier_id: &str) -> Result<()> {
+    pub fn record_domain_service_approval(&self, domain: &str, verifier_id: &str) -> Result<()> {
         let now = Utc::now();
 
         // Check if approval already exists
-        let approval = if let Some(mut existing) = self.get_domain_service_approval(domain, verifier, verifier_id)? {
-            // Update last_approved_at
-            existing.last_approved_at = now;
-            existing
-        } else {
-            // Create new approval
-            DomainServiceApproval {
-                domain: domain.to_string(),
-                verifier: verifier.to_string(),
-                verifier_id: verifier_id.to_string(),
-                first_approved_at: now,
-                last_approved_at: now,
-            }
-        };
+        let approval =
+            if let Some(mut existing) = self.get_domain_service_approval(domain, verifier_id)? {
+                // Update last_approved_at
+                existing.last_approved_at = now;
+                existing
+            } else {
+                // Create new approval
+                DomainServiceApproval {
+                    domain: domain.to_string(),
+                    verifier_id: verifier_id.to_string(),
+                    first_approved_at: now,
+                    last_approved_at: now,
+                }
+            };
 
-        let path = self.approval_path(domain, verifier, verifier_id);
-        let json = serde_json::to_string_pretty(&approval).context("Failed to serialize approval")?;
+        let path = self.approval_path(domain, verifier_id);
+        let json =
+            serde_json::to_string_pretty(&approval).context("Failed to serialize approval")?;
 
-        fs::write(&path, json).with_context(|| format!("Failed to write approval to {:?}", path))?;
+        fs::write(&path, json)
+            .with_context(|| format!("Failed to write approval to {:?}", path))?;
 
         Ok(())
     }
@@ -311,8 +316,7 @@ mod tests {
             request_id: Uuid::new_v4().to_string(),
             request: ChallengeRequest {
                 domain: "example.com".to_string(),
-                verifier: "service.example.net".to_string(),
-                verifier_id: "instance-123".to_string(),
+                verifier_id: "service.example.net".to_string(),
                 challenge: "test-challenge".to_string(),
                 expires_at: Utc::now() + Duration::hours(1),
                 metadata: None,

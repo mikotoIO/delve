@@ -283,8 +283,7 @@ All endpoints MUST use HTTPS. All requests and responses use `application/json` 
 ```json
 {
   "domain": "example.com",
-  "verifier": "service.example.net",
-  "verifierId": "unique-service-id",
+  "verifierId": "service.example.net",
   "challenge": "random-base64-challenge-value",
   "expiresAt": "2025-10-02T12:00:00Z",
   "metadata": {
@@ -324,8 +323,7 @@ All endpoints MUST use HTTPS. All requests and responses use `application/json` 
   "status": "authorized",
   "token": {
     "domain": "example.com",
-    "verifier": "service.example.net",
-    "verifierId": "unique-service-id",
+    "verifierId": "service.example.net",
     "challenge": "original-challenge-value",
     "signature": "base64-encoded-signature",
     "publicKey": "base64-encoded-public-key",
@@ -415,8 +413,7 @@ The signature covers a canonical JSON representation of:
 ```json
 {
   "domain": "example.com",
-  "verifier": "service.example.net",
-  "verifierId": "unique-service-id",
+  "verifierId": "service.example.net",
   "challenge": "base64-challenge",
   "signedAt": "2025-10-02T11:30:00Z"
 }
@@ -561,8 +558,7 @@ curl -X POST https://verify.example.org/v1/challenge \
   -H "Content-Type: application/json" \
   -d '{
     "domain": "example.com",
-    "verifier": "social.example.net",
-    "verifierId": "instance-abc123",
+    "verifierId": "social.example.net",
     "challenge": "MjAyNS0xMC0wMlQxMDowMDowMFp8cmFuZG9tZGF0YWhlcmU=",
     "expiresAt": "2025-10-02T11:00:00Z",
     "metadata": {
@@ -595,7 +591,7 @@ _delve.example.com. 3600 IN TXT "v=delve0.1; mode=direct; key=MCowBQYDK2VwAyEAYY
 **3. User Signs Locally:**
 
 ```bash
-echo '{"domain":"example.com","verifier":"social.example.net","verifierId":"instance-abc123","challenge":"MjAyNS0xMC0wMlQxMDowMDowMFp8cmFuZG9tZGF0YWhlcmU=","signedAt":"2025-10-02T10:30:00Z"}' | \
+echo '{"domain":"example.com","verifierId":"social.example.net","challenge":"MjAyNS0xMC0wMlQxMDowMDowMFp8cmFuZG9tZGF0YWhlcmU=","signedAt":"2025-10-02T10:30:00Z"}' | \
   delve-sign --key private-key.pem
 ```
 

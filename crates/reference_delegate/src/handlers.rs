@@ -41,10 +41,9 @@ pub async fn create_challenge(
     let request_id = Uuid::new_v4().to_string();
 
     // Check if this domain-service combination was previously approved
-    let is_approved =
-        state
-            .storage
-            .is_domain_service_approved(&req.domain, &req.verifier, &req.verifier_id)?;
+    let is_approved = state
+        .storage
+        .is_domain_service_approved(&req.domain, &req.verifier_id)?;
 
     let (status, token) = if is_approved {
         // Auto-approve: create token immediately
@@ -61,11 +60,9 @@ pub async fn create_challenge(
         );
 
         // Update the approval timestamp
-        state.storage.record_domain_service_approval(
-            &req.domain,
-            &req.verifier,
-            &req.verifier_id,
-        )?;
+        state
+            .storage
+            .record_domain_service_approval(&req.domain, &req.verifier_id)?;
 
         (RequestStatus::Authorized, Some(token))
     } else {
@@ -227,7 +224,6 @@ pub async fn process_authorization(
         // Record this approval for future auto-approval
         state.storage.record_domain_service_approval(
             &request.request.domain,
-            &request.request.verifier,
             &request.request.verifier_id,
         )?;
     } else {

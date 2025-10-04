@@ -4,7 +4,6 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 use libdelve::{delegate_client::DelegateClient, discovery::discover_dns_config, ChallengeRequest};
 use rand::Rng;
-use std::collections::HashMap;
 
 #[derive(Parser)]
 #[command(name = "delve")]
@@ -27,10 +26,6 @@ enum Commands {
         #[arg(short, long)]
         domain: String,
 
-        /// Verifier identifier (your service)
-        #[arg(short, long)]
-        verifier: String,
-
         /// Verifier instance ID
         #[arg(long)]
         verifier_id: String,
@@ -42,14 +37,6 @@ enum Commands {
         /// Expiration time in minutes from now
         #[arg(long, default_value = "60")]
         expires_in: i64,
-
-        /// Service name (metadata)
-        #[arg(long)]
-        service_name: Option<String>,
-
-        /// User identifier (metadata)
-        #[arg(long)]
-        user_identifier: Option<String>,
     },
 
     /// Retrieve a verification token
@@ -83,12 +70,9 @@ async fn main() -> Result<()> {
         Commands::Challenge {
             endpoint,
             domain,
-            verifier,
             verifier_id,
             challenge,
             expires_in,
-            service_name,
-            user_identifier,
         } => {
             // Resolve endpoint from DNS if not provided
             let endpoint = if let Some(ep) = endpoint {
@@ -109,14 +93,6 @@ async fn main() -> Result<()> {
 
             let client = DelegateClient::new(&endpoint);
 
-            let mut metadata = HashMap::new();
-            if let Some(name) = service_name {
-                metadata.insert("serviceName".to_string(), name);
-            }
-            if let Some(uid) = user_identifier {
-                metadata.insert("userIdentifier".to_string(), uid);
-            }
-
             // Generate challenge if not provided
             let challenge = challenge.unwrap_or_else(|| {
                 let mut rng = rand::rng();
@@ -126,15 +102,10 @@ async fn main() -> Result<()> {
 
             let request = ChallengeRequest {
                 domain: domain.clone(),
-                verifier,
                 verifier_id,
                 challenge,
                 expires_at: Utc::now() + Duration::minutes(expires_in),
-                metadata: if metadata.is_empty() {
-                    None
-                } else {
-                    Some(metadata)
-                },
+                metadata: None,
             };
 
             println!("{}", "Submitting challenge...".cyan());
@@ -180,7 +151,6 @@ async fn main() -> Result<()> {
                     println!("\n{}", "Token Details:".bold());
                     println!("  {}: {}", "Request ID".bold(), request_id);
                     println!("  {}: {}", "Domain".bold(), token.domain);
-                    println!("  {}: {}", "Verifier".bold(), token.verifier);
                     println!("  {}: {}", "Verifier ID".bold(), token.verifier_id);
                     println!("  {}: {}", "Key ID".bold(), token.key_id);
                     println!("  {}: {}", "Signed At".bold(), token.signed_at);

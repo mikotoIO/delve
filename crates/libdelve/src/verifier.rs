@@ -84,23 +84,15 @@ impl Verifier {
         delegate_endpoint: &str,
         challenge: &str,
         expires_at: DateTime<Utc>,
-        user_identifier: Option<String>,
     ) -> Result<String> {
         let client = DelegateClient::new(delegate_endpoint);
 
-        let mut metadata = std::collections::HashMap::new();
-        metadata.insert("serviceName".to_string(), self.verifier_name.clone());
-        if let Some(user_id) = user_identifier {
-            metadata.insert("userIdentifier".to_string(), user_id);
-        }
-
         let request = ChallengeRequest {
             domain: domain.to_string(),
-            verifier: self.verifier_name.clone(),
             verifier_id: self.verifier_id.clone(),
             challenge: challenge.to_string(),
             expires_at,
-            metadata: Some(metadata),
+            metadata: None,
         };
 
         let response = client.submit_challenge(&request).await?;
@@ -177,9 +169,7 @@ impl Verifier {
 
         // Verify challenge matches
         if token.challenge != expected_challenge {
-            return Err(Error::InvalidResponse(
-                "Challenge mismatch".to_string(),
-            ));
+            return Err(Error::InvalidResponse("Challenge mismatch".to_string()));
         }
 
         // Verify verifier ID matches
@@ -202,7 +192,6 @@ impl Verifier {
             challenge: token.challenge.clone(),
             domain: token.domain.clone(),
             signed_at: token.signed_at.to_rfc3339(),
-            verifier: token.verifier.clone(),
             verifier_id: token.verifier_id.clone(),
         };
 
@@ -219,11 +208,7 @@ mod tests {
 
     #[test]
     fn test_verifier_creation() {
-        let verifier = Verifier::new(
-            "Test Service",
-            "test-instance-123",
-            Duration::minutes(30),
-        );
+        let verifier = Verifier::new("Test Service", "test-instance-123", Duration::minutes(30));
 
         assert_eq!(verifier.verifier_name, "Test Service");
         assert_eq!(verifier.verifier_id, "test-instance-123");
@@ -231,11 +216,7 @@ mod tests {
 
     #[test]
     fn test_create_challenge() {
-        let verifier = Verifier::new(
-            "Test Service",
-            "test-instance-123",
-            Duration::minutes(30),
-        );
+        let verifier = Verifier::new("Test Service", "test-instance-123", Duration::minutes(30));
 
         let (challenge, expires_at) = verifier.create_challenge("example.com").unwrap();
 

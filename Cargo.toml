@@ -1,3 +1,3 @@
 [workspace]
 resolver = "2"
-members = ["crates/libdelve", "crates/reference_delegate"]
+members = [ "crates/delve_cli","crates/libdelve", "crates/reference_delegate"]

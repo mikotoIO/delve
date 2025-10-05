@@ -1,10 +1,11 @@
 [package]
 name = "libdelve"
-version = "0.1.0"
-edition = "2021"
+version = "0.1.1"
+edition = "2024"
 description = "Library for interacting with the DelVe standard"
 repository = "https://github.com/mikotoIO/delve"
 license = "MIT"
+documentation = "https://docs.rs/libdelve/latest/libdelve/"
 
 [dependencies]
 # Cryptography

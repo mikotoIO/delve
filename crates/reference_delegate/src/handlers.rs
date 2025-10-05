@@ -71,7 +71,7 @@ pub async fn create_challenge(
     let stored_request = StoredRequest {
         request_id: request_id.clone(),
         request: req.clone(),
-        status: status.clone(),
+        status,
         created_at: Utc::now(),
         updated_at: Utc::now(),
         token: token.clone(),

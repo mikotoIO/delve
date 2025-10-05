@@ -141,8 +141,7 @@ mod tests {
             challenge: "test-challenge".to_string(),
             domain: "example.com".to_string(),
             signed_at: "2025-10-02T10:30:00Z".to_string(),
-            verifier: "service.example.net".to_string(),
-            verifier_id: "instance-123".to_string(),
+            verifier_id: "service.example.net".to_string(),
         };
 
         // Sign
@@ -161,8 +160,7 @@ mod tests {
             challenge: "test-challenge".to_string(),
             domain: "example.com".to_string(),
             signed_at: "2025-10-02T10:30:00Z".to_string(),
-            verifier: "service.example.net".to_string(),
-            verifier_id: "instance-123".to_string(),
+            verifier_id: "service.example.net".to_string(),
         };
 
         let signature = sign_payload(&private_key, &payload).unwrap();
@@ -182,8 +180,7 @@ mod tests {
             challenge: "test-challenge".to_string(),
             domain: "example.com".to_string(),
             signed_at: "2025-10-02T10:30:00Z".to_string(),
-            verifier: "service.example.net".to_string(),
-            verifier_id: "instance-123".to_string(),
+            verifier_id: "service.example.net".to_string(),
         };
 
         let signature = sign_payload(&private_key, &payload).unwrap();

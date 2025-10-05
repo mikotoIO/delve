@@ -293,7 +293,7 @@ All endpoints MUST use HTTPS. All requests and responses use `application/json` 
 }
 ```
 
-**Response (202 Accepted):**
+**Response (202 Accepted - pending authorization):**
 
 ```json
 {
@@ -303,6 +303,30 @@ All endpoints MUST use HTTPS. All requests and responses use `application/json` 
   "expiresAt": "2025-10-02T12:00:00Z"
 }
 ```
+
+**Response (200 OK - immediately authorized):**
+
+If the delegate service is configured to auto-approve certain requests, the token may be included immediately in the challenge response:
+
+```json
+{
+  "requestId": "req-uuid-here",
+  "status": "authorized",
+  "expiresAt": "2025-10-02T12:00:00Z",
+  "token": {
+    "domain": "example.com",
+    "verifierId": "service.example.net",
+    "challenge": "original-challenge-value",
+    "signature": "base64-encoded-signature",
+    "publicKey": "base64-encoded-public-key",
+    "keyId": "example.com-2025-01",
+    "signedAt": "2025-10-02T11:30:00Z",
+    "expiresAt": "2025-10-02T12:00:00Z"
+  }
+}
+```
+
+The client should prefer to use this, instead of re-fetching the token, as the server may prefer to handle it statelessly by not storing the token.
 
 **Response (400 Bad Request):**
 

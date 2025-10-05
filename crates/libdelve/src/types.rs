@@ -136,6 +136,8 @@ pub struct ChallengeResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorization_url: Option<String>,
     pub expires_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<VerificationToken>,
 }
 
 /// Token response from delegate service

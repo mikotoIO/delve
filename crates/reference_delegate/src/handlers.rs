@@ -78,8 +78,9 @@ pub async fn create_challenge(
         rejected_at: None,
     };
 
-    state.storage.store_request(stored_request)?;
-
+    if status == RequestStatus::Pending {
+        state.storage.store_request(stored_request)?;
+    }
     // Return response
     let response = ChallengeResponse {
         request_id: request_id.clone(),
@@ -90,6 +91,7 @@ pub async fn create_challenge(
             None
         },
         expires_at: req.expires_at,
+        token,
     };
 
     Ok(Json(response))

@@ -108,18 +108,23 @@ async fn main() -> Result<()> {
             let (challenge, expires_at) = verifier_instance.create_challenge(&domain)?;
 
             println!("Submitting challenge to delegate {}", endpoint.cyan());
-            let request_id = verifier_instance
+            let (request_id, immediate_token) = verifier_instance
                 .submit_challenge_to_delegate(&domain, &endpoint, &challenge, expires_at)
                 .await?;
 
             println!("\n{}", "Challenge submitted!".green().bold());
             println!("  {}: {}", "Request ID".bold(), request_id);
 
-            // Poll for token
-            println!("\n{}", "Waiting for authorization...".cyan());
-            let token = verifier_instance
-                .poll_for_token(&endpoint, &request_id, Some(60), Some(5))
-                .await?;
+            // Use immediate token if available, otherwise poll
+            let token = if let Some(token) = immediate_token {
+                println!("\n{}", "✓ Immediately authorized!".green().bold());
+                token
+            } else {
+                println!("\n{}", "Waiting for authorization...".cyan());
+                verifier_instance
+                    .poll_for_token(&endpoint, &request_id, Some(60), Some(5))
+                    .await?
+            };
 
             println!("\n{}", "Token received!".green().bold());
             println!("  {}: {}", "Domain".bold(), token.domain);

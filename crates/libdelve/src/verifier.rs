@@ -68,7 +68,8 @@ impl Verifier {
     ///
     /// # Returns
     ///
-    /// The request ID for polling
+    /// A tuple of (request_id, optional_token). If the challenge was immediately approved,
+    /// the token will be present. Otherwise, you need to poll for it.
     #[cfg(feature = "delegate")]
     pub async fn submit_challenge_to_delegate(
         &self,
@@ -76,7 +77,7 @@ impl Verifier {
         delegate_endpoint: &str,
         challenge: &str,
         expires_at: DateTime<Utc>,
-    ) -> Result<String> {
+    ) -> Result<(String, Option<VerificationToken>)> {
         let client = DelegateClient::new(delegate_endpoint);
 
         let request = ChallengeRequest {
@@ -89,7 +90,7 @@ impl Verifier {
 
         let response = client.submit_challenge(&request).await?;
 
-        Ok(response.request_id)
+        Ok((response.request_id, response.token))
     }
 
     /// Poll for a verification token from a delegate service

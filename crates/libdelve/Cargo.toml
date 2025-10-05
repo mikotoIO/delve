@@ -20,12 +20,16 @@ chrono = { version = "0.4", features = ["serde"] }
 trust-dns-resolver = "0.23"
 
 # HTTP client for delegate mode
-reqwest = { version = "0.12", features = ["json"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+], optional = true }
 tokio = { version = "1", features = ["time"], optional = true }
 
 # Error handling
 thiserror = "2.0.17"
 
 [features]
-default = ["delegate"]
+default = ["delegate", "rustls"]
 delegate = ["reqwest", "tokio"]
+native-tls = ["reqwest?/default-tls"]
+rustls = ["reqwest?/rustls-tls"]

@@ -66,10 +66,7 @@ impl DelegateClient {
 
         let status = response.status();
 
-        if status.is_success() || status.as_u16() == 202 {
-            let token_response: TokenResponse = response.json().await?;
-            Ok(token_response)
-        } else if status.as_u16() == 403 {
+        if status.is_success() || status.as_u16() == 202 || status.as_u16() == 403 {
             let token_response: TokenResponse = response.json().await?;
             Ok(token_response)
         } else {

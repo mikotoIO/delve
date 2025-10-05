@@ -78,9 +78,7 @@ pub async fn create_challenge(
         rejected_at: None,
     };
 
-    if status == RequestStatus::Pending {
-        state.storage.store_request(stored_request)?;
-    }
+    state.storage.store_request(stored_request)?;
 
     // Return response
     let response = ChallengeResponse {

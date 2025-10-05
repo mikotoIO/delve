@@ -3,8 +3,7 @@ use chrono::Duration;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use libdelve::{
-    delegate_client::DelegateClient, discovery::discover_dns_config, ChallengeRequest,
-    RequestStatus,
+    delegate_client::DelegateClient, discovery::discover_dns_config, verifier::Verifier,
 };
 
 #[derive(Parser)]
@@ -37,7 +36,7 @@ enum Commands {
         expires_in: i64,
     },
 
-    /// Retrieve a verification token
+    /// Retrieve and verify a verification token
     Token {
         /// Delegate endpoint URL
         #[arg(short, long)]
@@ -46,6 +45,18 @@ enum Commands {
         /// Request ID from challenge response
         #[arg(short, long)]
         request_id: String,
+
+        /// Domain being verified
+        #[arg(short, long)]
+        domain: String,
+
+        /// Verifier instance ID
+        #[arg(long)]
+        verifier: String,
+
+        /// Original challenge string
+        #[arg(short, long)]
+        challenge: String,
     },
 
     /// Revoke authorization for a verifier
@@ -71,16 +82,18 @@ async fn main() -> Result<()> {
             verifier,
             expires_in,
         } => {
+            // Discover DNS configuration
+            println!(
+                "{}",
+                format!("Discovering configuration for {}...", domain).cyan()
+            );
+            let dns_config = discover_dns_config(&domain).await?;
+
             // Resolve endpoint from DNS if not provided
             let endpoint = if let Some(ep) = endpoint {
                 ep
             } else {
-                println!(
-                    "{}",
-                    format!("Discovering endpoint for {}...", domain).cyan()
-                );
-                let config = discover_dns_config(&domain).await?;
-                config.endpoint.ok_or_else(|| {
+                dns_config.endpoint.clone().ok_or_else(|| {
                     anyhow::anyhow!(
                         "Domain {} uses direct mode, no delegate endpoint available",
                         domain
@@ -88,56 +101,85 @@ async fn main() -> Result<()> {
                 })?
             };
 
-            let client = DelegateClient::new(&endpoint);
-            let request = ChallengeRequest::new(&domain, &verifier, Duration::minutes(expires_in))?;
+            // Create verifier instance
+            let verifier_instance = Verifier::new(&verifier, Duration::minutes(expires_in));
+
+            // Generate challenge
+            let (challenge, expires_at) = verifier_instance.create_challenge(&domain)?;
 
             println!("Submitting challenge to delegate {}", endpoint.cyan());
-            let response = client.submit_challenge(&request).await?;
+            let request_id = verifier_instance
+                .submit_challenge_to_delegate(&domain, &endpoint, &challenge, expires_at)
+                .await?;
 
-            println!("\n{}", "Challenge submitted successfully!".green().bold());
-            println!("\n{}", "Response:".bold());
-            println!("  {}: {}", "Request ID".bold(), response.request_id);
-            println!(
-                "  {}: {}",
-                "Status".bold(),
-                match response.status {
-                    RequestStatus::Authorized => format!("{:?}", response.status).green(),
-                    RequestStatus::Rejected => format!("{:?}", response.status).red(),
-                    RequestStatus::Pending => format!("{:?}", response.status).yellow(),
-                }
-            );
-            if let Some(auth_url) = &response.authorization_url {
-                println!("  {}: {}", "Authorization URL".bold(), auth_url.underline());
-            }
+            println!("\n{}", "Challenge submitted!".green().bold());
+            println!("  {}: {}", "Request ID".bold(), request_id);
 
-            if response.status == RequestStatus::Pending {
-                println!("\n{}", "Next steps:".cyan().bold());
-                println!("  1. Visit the authorization URL to approve the request");
-                println!(
-                    "  2. Run: {} to retrieve the token",
-                    format!("delve token -e {} -r {}", endpoint, response.request_id).yellow()
-                );
-                println!(
-                    "     Or: {} to wait for authorization",
-                    format!("delve poll -e {} -r {}", endpoint, response.request_id).yellow()
-                );
-            }
+            // Poll for token
+            println!("\n{}", "Waiting for authorization...".cyan());
+            let token = verifier_instance
+                .poll_for_token(&endpoint, &request_id, Some(60), Some(5))
+                .await?;
+
+            println!("\n{}", "Token received!".green().bold());
+            println!("  {}: {}", "Domain".bold(), token.domain);
+            println!("  {}: {}", "Signed At".bold(), token.signed_at);
+
+            // Verify signature
+            println!("\n{}", "Verifying signature...".cyan());
+            verifier_instance.verify_token(&token, &domain, &challenge, &dns_config.public_key)?;
+
+            println!("\n{}", "✓ Verification successful!".green().bold());
+            println!("\n{}", "Token Details:".bold());
+            println!("  {}: {}", "Domain".bold(), token.domain);
+            println!("  {}: {}", "Verifier ID".bold(), token.verifier_id);
+            println!("  {}: {}", "Key ID".bold(), token.key_id);
+            println!("  {}: {}", "Signed At".bold(), token.signed_at);
+            println!("  {}: {}", "Expires At".bold(), token.expires_at);
+            println!("\n{}", "Full Token (JSON):".bold());
+            println!("{}", serde_json::to_string_pretty(&token)?);
         }
 
         Commands::Token {
             endpoint,
             request_id,
+            domain,
+            verifier,
+            challenge,
         } => {
+            // Discover DNS configuration
+            println!(
+                "{}",
+                format!("Discovering configuration for {}...", domain).cyan()
+            );
+            let dns_config = discover_dns_config(&domain).await?;
+
             let client = DelegateClient::new(&endpoint);
 
             println!("{}", "Retrieving token...".cyan());
             let response = client.get_token(&request_id).await?;
 
             match response {
-                libdelve::TokenResponse::Authorized { request_id, token } => {
-                    println!("\n{}", "Token authorized!".green().bold());
+                libdelve::TokenResponse::Authorized {
+                    request_id: _,
+                    token,
+                } => {
+                    println!("\n{}", "Token received!".green().bold());
+                    println!("  {}: {}", "Domain".bold(), token.domain);
+                    println!("  {}: {}", "Signed At".bold(), token.signed_at);
+
+                    // Verify signature
+                    println!("\n{}", "Verifying signature...".cyan());
+                    let verifier_instance = Verifier::new(&verifier, Duration::minutes(60));
+                    verifier_instance.verify_token(
+                        &token,
+                        &domain,
+                        &challenge,
+                        &dns_config.public_key,
+                    )?;
+
+                    println!("\n{}", "✓ Verification successful!".green().bold());
                     println!("\n{}", "Token Details:".bold());
-                    println!("  {}: {}", "Request ID".bold(), request_id);
                     println!("  {}: {}", "Domain".bold(), token.domain);
                     println!("  {}: {}", "Verifier ID".bold(), token.verifier_id);
                     println!("  {}: {}", "Key ID".bold(), token.key_id);

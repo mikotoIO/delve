@@ -2,6 +2,9 @@
 name = "libdelve"
 version = "0.1.0"
 edition = "2021"
+description = "Library for interacting with the DelVe standard"
+repository = "https://github.com/mikotoIO/delve"
+license = "MIT"
 
 [dependencies]
 # Cryptography
